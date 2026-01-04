@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stopwatch</title>
+  <style>
+    /* Reset and base styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    /* Main container */
+    .stopwatch-container {
+      background: white;
+      border-radius: 20px;
+      padding: 60px 80px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      text-align: center;
+      max-width: 500px;
+      width: 100%;
+    }
+
+    /* Title */
+    h1 {
+      color: #333;
+      font-size: 2.5rem;
+      margin-bottom: 40px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+
+    /* Time display */
+    .display {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 5rem;
+      font-weight: bold;
+      color: #667eea;
+      margin-bottom: 50px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 10px;
+      letter-spacing: 0.05em;
+      min-height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Button container */
+    .controls {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    /* Base button styles */
+    .btn {
+      font-size: 1.1rem;
+      font-weight: 600;
+      padding: 15px 35px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      font-family: inherit;
+    }
+
+    /* Start button */
+    .btn-start {
+      background-color: #4CAF50;
+      color: white;
+    }
+
+    .btn-start:hover:not(:disabled) {
+      background-color: #45a049;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(76, 175, 80, 0.3);
+    }
+
+    .btn-start:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    /* Stop button */
+    .btn-stop {
+      background-color: #f44336;
+      color: white;
+    }
+
+    .btn-stop:hover:not(:disabled) {
+      background-color: #da190b;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(244, 67, 54, 0.3);
+    }
+
+    .btn-stop:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    /* Reset button */
+    .btn-reset {
+      background-color: #757575;
+      color: white;
+    }
+
+    .btn-reset:hover:not(:disabled) {
+      background-color: #616161;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(117, 117, 117, 0.3);
+    }
+
+    .btn-reset:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    /* Disabled button state */
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+      .stopwatch-container {
+        padding: 40px 30px;
+      }
+
+      h1 {
+        font-size: 2rem;
+        margin-bottom: 30px;
+      }
+
+      .display {
+        font-size: 3.5rem;
+        margin-bottom: 40px;
+        min-height: 100px;
+      }
+
+      .btn {
+        font-size: 1rem;
+        padding: 12px 25px;
+      }
+
+      .controls {
+        gap: 10px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .display {
+        font-size: 2.5rem;
+        min-height: 80px;
+      }
+
+      .btn {
+        font-size: 0.9rem;
+        padding: 10px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="stopwatch-container">
+    <h1>Stopwatch</h1>
+    <div id="display" class="display">0.00</div>
+    <div class="controls">
+      <button id="startBtn" class="btn btn-start">Start</button>
+      <button id="stopBtn" class="btn btn-stop" disabled>Stop</button>
+      <button id="resetBtn" class="btn btn-reset">Reset</button>
+    </div>
+  </div>
+
+  <script>
+    // Polyfills for older browsers
+    const now = () => (performance && performance.now) ? performance.now() : Date.now();
+    const raf = window.requestAnimationFrame || ((cb) => setTimeout(cb, 16));
+    const caf = window.cancelAnimationFrame || clearTimeout;
+
+    // DOM elements
+    const displayElement = document.getElementById('display');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    // State variables
+    let isRunning = false;        // Is stopwatch currently running?
+    let startTime = 0;            // When did current session start? (high-res timestamp)
+    let elapsedTime = 0;          // Total elapsed time in milliseconds
+    let animationFrameId = null;  // RequestAnimationFrame ID for cancellation
+
+    /**
+     * Updates the display with current elapsed time
+     * Continues animation loop if stopwatch is running
+     */
+    function updateDisplay() {
+      if (isRunning) {
+        const currentTime = now();
+        const delta = currentTime - startTime;
+        const totalElapsed = elapsedTime + delta;
+
+        // Convert to seconds and format to 2 decimal places
+        const seconds = (totalElapsed / 1000).toFixed(2);
+        displayElement.textContent = seconds;
+
+        // Continue animation loop
+        animationFrameId = raf(updateDisplay);
+      }
+    }
+
+    /**
+     * Updates button states based on running state
+     * Start: disabled when running
+     * Stop: disabled when not running
+     * Reset: always enabled
+     */
+    function updateButtonStates() {
+      startBtn.disabled = isRunning;
+      stopBtn.disabled = !isRunning;
+      // Reset is always enabled
+    }
+
+    /**
+     * Handles Start button click
+     * Begins timing if not already running
+     */
+    function handleStart() {
+      if (!isRunning) {
+        isRunning = true;
+        startTime = now();
+        updateDisplay();
+        updateButtonStates();
+      }
+    }
+
+    /**
+     * Handles Stop button click
+     * Pauses timing and accumulates elapsed time
+     */
+    function handleStop() {
+      if (isRunning) {
+        isRunning = false;
+        const currentTime = now();
+        elapsedTime += (currentTime - startTime);
+        caf(animationFrameId);
+        updateButtonStates();
+      }
+    }
+
+    /**
+     * Handles Reset button click
+     * Stops timing (if running) and resets all state
+     */
+    function handleReset() {
+      isRunning = false;
+      elapsedTime = 0;
+      startTime = 0;
+      caf(animationFrameId);
+      displayElement.textContent = '0.00';
+      updateButtonStates();
+    }
+
+    // Event listeners
+    startBtn.addEventListener('click', handleStart);
+    stopBtn.addEventListener('click', handleStop);
+    resetBtn.addEventListener('click', handleReset);
+
+    // Initialize button states
+    updateButtonStates();
+  </script>
+</body>
+</html>
